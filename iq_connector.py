@@ -1,13 +1,14 @@
 import time
 from iqoptionapi.stable_api import IQ_Option
 
-class IQConnector:
+
+class ConectorIQ:
     def __init__(self, email, password):
         self.email = email
         self.password = password
         self.api = IQ_Option(email, password)
 
-    def connect(self):
+    def conectar(self):
         check, reason = self.api.connect()
         if check:
             self.api.change_balance("PRACTICE")
@@ -16,7 +17,7 @@ class IQConnector:
             print("Error conectando:", reason)
             return False
 
-    def get_candles(self, pair="EURUSD-OTC", timeframe=60, count=100):
-        end_from_time = time.time()
-        candles = self.api.get_candles(pair, timeframe, count, end_from_time)
-        return candles
+    def obtener_velas(self, par="EURUSD-OTC", periodo=60, cantidad=120):
+        fin = time.time()
+        velas = self.api.get_candles(par, periodo, cantidad, fin)
+        return velas
