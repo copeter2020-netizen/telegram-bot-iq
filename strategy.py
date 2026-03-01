@@ -2,7 +2,7 @@
 import pandas as pd
 import ta
 
-def analyze(candles):
+def analizar(velas):
     df = pd.DataFrame(candles)
     df["close"] = df["close"]
 
