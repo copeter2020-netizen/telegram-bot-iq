@@ -1,24 +1,44 @@
 import telebot
 import os
 from iq_connector import ConectorIQ
-señal = analyze(velas)
+from strategy import analyze
+
+# ==============================
+# VARIABLES DE ENTORNO
+# ==============================
 
 TOKEN = os.getenv("TOKEN")
 IQ_EMAIL = os.getenv("IQ_EMAIL")
 IQ_PASSWORD = os.getenv("IQ_PASSWORD")
 
+# ==============================
+# INICIALIZAR BOT
+# ==============================
+
 bot = telebot.TeleBot(TOKEN)
+
+# ==============================
+# CONECTAR A IQ OPTION
+# ==============================
 
 conector = ConectorIQ(IQ_EMAIL, IQ_PASSWORD)
 
 if conector.conectar():
-    print("Conectado a IQ Option")
+    print("✅ Conectado a IQ Option")
 else:
-    print("Error de conexión IQ")
+    print("❌ Error de conexión IQ Option")
+
+# ==============================
+# COMANDO /comenzar
+# ==============================
 
 @bot.message_handler(commands=['comenzar'])
 def comenzar(mensaje):
     bot.reply_to(mensaje, "🤖 Bot OTC Profesional Activo")
+
+# ==============================
+# MENSAJES NORMALES
+# ==============================
 
 @bot.message_handler(func=lambda mensaje: True)
 def manejar_mensaje(mensaje):
@@ -31,6 +51,10 @@ def manejar_mensaje(mensaje):
     else:
         bot.reply_to(mensaje, "Escribe: EUR USD")
 
+# ==============================
+# INICIAR BOT
+# ==============================
+
 if __name__ == "__main__":
-    print("Bot corriendo...")
-    bot.infinity_polling() 
+    print("🚀 Bot corriendo...")
+    bot.infinity_polling()
