@@ -1,6 +1,4 @@
-pyTelegramBotAPI==4.14.0
-requests
+pyTelegramBotAPI
 pandas
-numpy
-ta==0.11.0
-git+https://github.com/Lu-Yi-Hsun/iqoptionapi.git
+ta
+iqoptionapi
