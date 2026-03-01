@@ -1,7 +1,7 @@
 import telebot
 import os
 from iq_connector import ConectorIQ
-from strategy import analizar
+from strategy import analyze
 
 TOKEN = os.getenv("TOKEN")
 IQ_EMAIL = os.getenv("IQ_EMAIL")
@@ -26,7 +26,7 @@ def manejar_mensaje(mensaje):
 
     if "eur usd" in texto:
         velas = conector.obtener_velas("EURUSD-OTC", 60, 120)
-        señal = analizar(velas)
+        señal = analyze(velas)
         bot.reply_to(mensaje, señal)
     else:
         bot.reply_to(mensaje, "Escribe: EUR USD")
