@@ -1,60 +1,34 @@
 import telebot
 import os
-import requests
-import pandas as pd
-import ta
+from iq_connector import IQConnector
+from strategy import analyze
 
 TOKEN = os.getenv("TOKEN")
+IQ_EMAIL = os.getenv("IQ_EMAIL")
+IQ_PASSWORD = os.getenv("IQ_PASSWORD")
+
 bot = telebot.TeleBot(TOKEN)
 
-def get_signal():
-    url = "https://api.binance.com/api/v3/klines?symbol=EURUSDT&interval=1m&limit=100"
-    data = requests.get(url).json()
+connector = IQConnector(IQ_EMAIL, IQ_PASSWORD)
 
-    closes = [float(candle[4]) for candle in data]
-    df = pd.DataFrame(closes, columns=["close"])
-
-    # Indicadores
-    df["ema20"] = df["close"].ewm(span=20).mean()
-    df["ema50"] = df["close"].ewm(span=50).mean()
-    df["rsi"] = ta.momentum.RSIIndicator(df["close"], window=14).rsi()
-
-    macd = ta.trend.MACD(df["close"])
-    df["macd"] = macd.macd()
-    df["macd_signal"] = macd.macd_signal()
-
-    last = df.iloc[-1]
-
-    # Condiciones profesionales
-    if (
-        last["ema20"] > last["ema50"]
-        and last["rsi"] > 50
-        and last["macd"] > last["macd_signal"]
-    ):
-        return "📈 COMPRA (CALL)\n⏱ Expira en 5 minutos\n📊 Tendencia alcista confirmada"
-
-    elif (
-        last["ema20"] < last["ema50"]
-        and last["rsi"] < 50
-        and last["macd"] < last["macd_signal"]
-    ):
-        return "📉 VENTA (PUT)\n⏱ Expira en 5 minutos\n📊 Tendencia bajista confirmada"
-
-    else:
-        return "⚠️ Sin confirmación suficiente ahora"
+if connector.connect():
+    print("Conectado a IQ Option")
+else:
+    print("Error conexión IQ")
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "Bot profesional activo 📊🔥")
+    bot.reply_to(message, "🤖 Bot OTC Profesional Activo")
 
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     text = message.text.lower()
 
-    if "eur" in text:
-        signal = get_signal()
+    if "otc" in text:
+        candles = connector.get_candles("EURUSD-OTC", 60, 120)
+        signal = analyze(candles)
         bot.reply_to(message, signal)
     else:
-        bot.reply_to(message, "Escribe: eur usd")
+        bot.reply_to(message, "Escribe: eur usd otc")
 
-bot.infinity_polling()
+bot.infinity_polling() 
