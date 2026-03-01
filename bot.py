@@ -1,7 +1,7 @@
 import telebot
 import os
 from iq_connector import ConectorIQ
-from strategy import analyze
+señal = analyze(velas)
 
 TOKEN = os.getenv("TOKEN")
 IQ_EMAIL = os.getenv("IQ_EMAIL")
