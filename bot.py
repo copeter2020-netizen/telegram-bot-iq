@@ -4,9 +4,9 @@ import time
 from iq_connector import ConectorIQ
 from strategy import analizar
 
-# ===============================
+# =====================================
 # VARIABLES DE ENTORNO
-# ===============================
+# =====================================
 
 TOKEN = os.getenv("TOKEN")
 IQ_EMAIL = os.getenv("IQ_EMAIL")
@@ -18,9 +18,9 @@ if not TOKEN:
 if not IQ_EMAIL or not IQ_PASSWORD:
     raise ValueError("Credenciales IQ no configuradas")
 
-# ===============================
-# CREAR BOT (ANTES DE LOS HANDLERS)
-# ===============================
+# =====================================
+# CREAR BOT (ANTES DE HANDLERS)
+# =====================================
 
 bot = telebot.TeleBot(TOKEN)
 
@@ -28,9 +28,9 @@ bot = telebot.TeleBot(TOKEN)
 bot.remove_webhook()
 time.sleep(2)
 
-# ===============================
+# =====================================
 # CONECTAR A IQ OPTION
-# ===============================
+# =====================================
 
 conector = ConectorIQ(IQ_EMAIL, IQ_PASSWORD)
 
@@ -39,9 +39,9 @@ if conector.conectar():
 else:
     print("❌ Error de conexión IQ Option")
 
-# ===============================
+# =====================================
 # COMANDO /comenzar
-# ===============================
+# =====================================
 
 @bot.message_handler(commands=['comenzar'])
 def comenzar(mensaje):
@@ -53,9 +53,9 @@ def comenzar(mensaje):
         "GBPUSDOTC"
     )
 
-# ===============================
-# MENSAJES
-# ===============================
+# =====================================
+# MENSAJES NORMALES
+# =====================================
 
 @bot.message_handler(func=lambda mensaje: True)
 def manejar_mensaje(mensaje):
@@ -73,7 +73,7 @@ def manejar_mensaje(mensaje):
 
         bot.reply_to(
             mensaje,
-            f"🔎 Analizando {par}..."
+            f"🔎 Analizando {par}...\nBuscando la mejor entrada..."
         )
 
         try:
@@ -82,7 +82,7 @@ def manejar_mensaje(mensaje):
             if not velas:
                 bot.send_message(
                     mensaje.chat.id,
-                    "⚠ No se pudieron obtener datos"
+                    "⚠ No se pudieron obtener datos del mercado"
                 )
                 return
 
@@ -90,25 +90,27 @@ def manejar_mensaje(mensaje):
 
             bot.send_message(
                 mensaje.chat.id,
-                f"📊 {par}\n\n{señal}"
+                f"📊 Par: {par}\n\n{señal}"
             )
 
         except Exception as e:
-            print("Error:", e)
+            print("Error analizando:", e)
             bot.send_message(
                 mensaje.chat.id,
-                "⚠ Error analizando mercado"
+                "⚠ Error analizando el mercado"
             )
 
     else:
         bot.reply_to(
             mensaje,
-            "📌 Pares disponibles:\nEURUSDOTC\nGBPUSDOTC"
+            "📌 Pares disponibles:\n"
+            "EURUSDOTC\n"
+            "GBPUSDOTC"
         )
 
-# ===============================
+# =====================================
 # INICIAR BOT ESTABLE
-# ===============================
+# =====================================
 
 def iniciar_bot():
     while True:
@@ -116,7 +118,7 @@ def iniciar_bot():
             print("🚀 Bot corriendo...")
             bot.infinity_polling(timeout=60, long_polling_timeout=60)
         except Exception as e:
-            print("Error polling:", e)
+            print("Error en polling:", e)
             time.sleep(5)
 
 if __name__ == "__main__":
