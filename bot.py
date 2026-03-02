@@ -45,11 +45,11 @@ def manejar_mensaje(mensaje):
     texto = mensaje.text.lower()
 
     if "eur usd" in texto:
-        velas = conector.obtener_velas("EURUSD-OTC", 60, 120)
+        velas = conector.obtener_velas("EUR USD, EUR GBP, EUR JPY, GBP USD" ", 60, 120)
         señal = analizar(velas)
         bot.reply_to(mensaje, señal)
     else:
-        bot.reply_to(mensaje, "Escribe: EUR USD")
+        bot.reply_to(mensaje, "Escribe: EUR USD, EUR GBP, EUR JPY, GBP USD")
 
 # ==============================
 # INICIAR BOT
