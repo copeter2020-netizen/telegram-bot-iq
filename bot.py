@@ -53,6 +53,64 @@ def comenzar(mensaje):
 
 @bot.message_handler(func=lambda mensaje: True)
 def manejar_mensaje(mensaje):
+    texto = mensaje.text.upper().replace(" ", "")
+
+    # Diccionario de pares disponibles
+    pares = {
+        "EURUSD": "EURUSD",
+        "GBPUSD": "GBPUSD",
+        "USDJPY": "USDJPY",
+        "EURJPY": "EURJPY",
+        "AUDUSD": "AUDUSD",
+        "EURUSDOTC": "EURUSD-OTC",
+        "GBPUSDOTC": "GBPUSD-OTC"
+    }
+
+    if texto in pares:
+
+        par = pares[texto]
+
+        bot.reply_to(
+            mensaje,
+            f"🔎 Analizando {par}...\nBuscando la mejor entrada..."
+        )
+
+        try:
+            velas = conector.obtener_velas(par, 60, 120)
+
+            if not velas:
+                bot.send_message(
+                    mensaje.chat.id,
+                    "⚠ No se pudieron obtener datos del mercado"
+                )
+                return
+
+            señal = analizar(velas)
+
+            bot.send_message(
+                mensaje.chat.id,
+                f"📊 Par: {par}\n\n{señal}"
+            )
+
+        except Exception as e:
+            print("Error:", e)
+            bot.send_message(
+                mensaje.chat.id,
+                "⚠ Error analizando el mercado"
+            )
+
+    else:
+        bot.reply_to(
+            mensaje,
+            "📌 Pares disponibles:\n"
+            "EURUSD\n"
+            "GBPUSD\n"
+            "USDJPY\n"
+            "EURJPY\n"
+            "AUDUSD\n"
+            "EURUSDOTC\n"
+            "GBPUSDOTC"
+        )
     texto = mensaje.text.lower()
 
     if "eur usd" in texto:
