@@ -1,113 +1,74 @@
-import telebot
-import os
-import time
-from iq_connector import ConectorIQ
-from strategy import analizar
+import pandas as pd
+import ta
 
-# ==========================
-# VARIABLES DE ENTORNO
-# ==========================
+def analizar(velas):
 
-TOKEN = os.getenv("TOKEN")
-IQ_EMAIL = os.getenv("IQ_EMAIL")
-IQ_PASSWORD = os.getenv("IQ_PASSWORD")
+    # ==========================
+    # VALIDACIONES
+    # ==========================
 
-# ==========================
-# VALIDACIÓN DE VARIABLES
-# ==========================
+    if not velas or len(velas) < 60:
+        return "⚠ No hay suficientes datos para analizar"
 
-if not TOKEN:
-    raise ValueError("TOKEN no configurado en Railway")
+    try:
+        df = pd.DataFrame(velas)
+    except Exception:
+        return "⚠ Error procesando datos"
 
-if not IQ_EMAIL or not IQ_PASSWORD:
-    raise ValueError("Credenciales IQ no configuradas")
+    if "close" not in df.columns:
+        return "⚠ Datos inválidos recibidos"
 
-# ==========================
-# INICIALIZAR BOT
-# ==========================
+    # ==========================
+    # INDICADORES
+    # ==========================
 
-bot = telebot.TeleBot(TOKEN)
+    try:
+        df["ema20"] = ta.trend.ema_indicator(df["close"], window=20)
+        df["ema50"] = ta.trend.ema_indicator(df["close"], window=50)
+        df["rsi"] = ta.momentum.rsi(df["close"], window=14)
 
-# Eliminar cualquier webhook viejo
-bot.remove_webhook()
-time.sleep(2)
+        macd = ta.trend.MACD(df["close"])
+        df["macd"] = macd.macd()
+        df["macd_signal"] = macd.macd_signal()
 
-# ==========================
-# CONECTAR A IQ OPTION
-# ==========================
+    except Exception:
+        return "⚠ Error calculando indicadores"
 
-conector = ConectorIQ(IQ_EMAIL, IQ_PASSWORD)
+    df = df.dropna()
 
-if conector.conectar():
-    print("✅ Conectado a IQ Option")
-else:
-    print("❌ Error de conexión IQ Option")
+    if df.empty:
+        return "⚠ Datos insuficientes tras calcular indicadores"
 
-# ==========================
-# COMANDO /comenzar
-# ==========================
+    last = df.iloc[-1]
 
-@bot.message_handler(commands=['comenzar'])
-def comenzar(mensaje):
-    bot.reply_to(mensaje, "🤖 Bot OTC Profesional Activo")
+    # ==========================
+    # LÓGICA DE SEÑAL
+    # ==========================
 
-# ==========================
-# MENSAJES NORMALES
-# ==========================
-
-@bot.message_handler(func=lambda mensaje: True)
-def manejar_mensaje(mensaje):
-    texto = mensaje.text.lower()
-
-    if "eur usd" in texto:
-
-        bot.reply_to(
-            mensaje,
-            "🔎 Analizando el gráfico para buscar la mejor entrada..."
+    if (
+        last["ema20"] > last["ema50"]
+        and last["rsi"] > 55
+        and last["macd"] > last["macd_signal"]
+    ):
+        return (
+            "🟢 COMPRA (CALL)\n"
+            "⏳ Expira en 5 minutos\n"
+            "📈 Tendencia alcista confirmada"
         )
 
-        try:
-            velas = conector.obtener_velas("EURUSD-OTC", 60, 120)
-
-            if not velas:
-                bot.send_message(
-                    mensaje.chat.id,
-                    "⚠ No se pudieron obtener datos del mercado"
-                )
-                return
-
-            señal = analizar(velas)
-
-            bot.send_message(
-                mensaje.chat.id,
-                señal
-            )
-
-        except Exception as e:
-            print("Error analizando:", e)
-            bot.send_message(
-                mensaje.chat.id,
-                "⚠ Error analizando el mercado. Intenta nuevamente."
-            )
+    elif (
+        last["ema20"] < last["ema50"]
+        and last["rsi"] < 45
+        and last["macd"] < last["macd_signal"]
+    ):
+        return (
+            "🔴 VENTA (PUT)\n"
+            "⏳ Expira en 5 minutos\n"
+            "📉 Tendencia bajista confirmada"
+        )
 
     else:
-        bot.reply_to(mensaje, "Escribe: EUR USD")
-
-# ==========================
-# INICIAR BOT (ANTI 409)
-# ==========================
-
-def iniciar_bot():
-    while True:
-        try:
-            print("🚀 Bot corriendo...")
-            bot.infinity_polling(
-                timeout=60,
-                long_polling_timeout=60
-            )
-        except Exception as e:
-            print("Error en polling:", e)
-            time.sleep(5)
-
-if __name__ == "__main__":
-    iniciar_bot()
+        return (
+            "🟡 Sin señal clara ahora\n"
+            "⏳ Esperando mejor confirmación"
+        )
