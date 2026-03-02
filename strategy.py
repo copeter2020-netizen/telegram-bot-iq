@@ -1,47 +1,113 @@
-import pandas as pd
-import ta
+import telebot
+import os
+import time
+from iq_connector import ConectorIQ
+from strategy import analizar
 
-def analizar(velas):
+# ==========================
+# VARIABLES DE ENTORNO
+# ==========================
 
-    if not velas:
-        return "⚠️ No se pudieron obtener velas"
+TOKEN = os.getenv("TOKEN")
+IQ_EMAIL = os.getenv("IQ_EMAIL")
+IQ_PASSWORD = os.getenv("IQ_PASSWORD")
 
-    df = pd.DataFrame(velas)
+# ==========================
+# VALIDACIÓN DE VARIABLES
+# ==========================
 
-    if "close" not in df.columns:
-        return "⚠️ Datos inválidos"
+if not TOKEN:
+    raise ValueError("TOKEN no configurado en Railway")
 
-    # ==============================
-    # INDICADORES
-    # ==============================
+if not IQ_EMAIL or not IQ_PASSWORD:
+    raise ValueError("Credenciales IQ no configuradas")
 
-    df["ema20"] = ta.trend.ema_indicator(df["close"], window=20)
-    df["ema50"] = ta.trend.ema_indicator(df["close"], window=50)
-    df["rsi"] = ta.momentum.rsi(df["close"], window=14)
+# ==========================
+# INICIALIZAR BOT
+# ==========================
 
-    macd = ta.trend.MACD(df["close"])
-    df["macd"] = macd.macd()
-    df["macd_signal"] = macd.macd_signal()
+bot = telebot.TeleBot(TOKEN)
 
-    last = df.iloc[-1]
+# Eliminar cualquier webhook viejo
+bot.remove_webhook()
+time.sleep(2)
 
-    # ==============================
-    # LÓGICA DE SEÑAL
-    # ==============================
+# ==========================
+# CONECTAR A IQ OPTION
+# ==========================
 
-    if (
-        last["ema20"] > last["ema50"]
-        and last["rsi"] > 55
-        and last["macd"] > last["macd_signal"]
-    ):
-        return "🟢 COMPRA (CALL)\n⏳ Expira en 5 minutos\n📈 Tendencia alcista confirmada"
+conector = ConectorIQ(IQ_EMAIL, IQ_PASSWORD)
 
-    elif (
-        last["ema20"] < last["ema50"]
-        and last["rsi"] < 45
-        and last["macd"] < last["macd_signal"]
-    ):
-        return "🔴 VENTA (PUT)\n⏳ Expira en 5 minutos\n📉 Tendencia bajista confirmada"
+if conector.conectar():
+    print("✅ Conectado a IQ Option")
+else:
+    print("❌ Error de conexión IQ Option")
+
+# ==========================
+# COMANDO /comenzar
+# ==========================
+
+@bot.message_handler(commands=['comenzar'])
+def comenzar(mensaje):
+    bot.reply_to(mensaje, "🤖 Bot OTC Profesional Activo")
+
+# ==========================
+# MENSAJES NORMALES
+# ==========================
+
+@bot.message_handler(func=lambda mensaje: True)
+def manejar_mensaje(mensaje):
+    texto = mensaje.text.lower()
+
+    if "eur usd" in texto:
+
+        bot.reply_to(
+            mensaje,
+            "🔎 Analizando el gráfico para buscar la mejor entrada..."
+        )
+
+        try:
+            velas = conector.obtener_velas("EURUSD-OTC", 60, 120)
+
+            if not velas:
+                bot.send_message(
+                    mensaje.chat.id,
+                    "⚠ No se pudieron obtener datos del mercado"
+                )
+                return
+
+            señal = analizar(velas)
+
+            bot.send_message(
+                mensaje.chat.id,
+                señal
+            )
+
+        except Exception as e:
+            print("Error analizando:", e)
+            bot.send_message(
+                mensaje.chat.id,
+                "⚠ Error analizando el mercado. Intenta nuevamente."
+            )
 
     else:
-        return "⚠️ Sin señal clara ahora" 
+        bot.reply_to(mensaje, "Escribe: EUR USD")
+
+# ==========================
+# INICIAR BOT (ANTI 409)
+# ==========================
+
+def iniciar_bot():
+    while True:
+        try:
+            print("🚀 Bot corriendo...")
+            bot.infinity_polling(
+                timeout=60,
+                long_polling_timeout=60
+            )
+        except Exception as e:
+            print("Error en polling:", e)
+            time.sleep(5)
+
+if __name__ == "__main__":
+    iniciar_bot()
