@@ -75,7 +75,8 @@ def manejar_mensaje(mensaje):
 # ==========================
 # INICIAR BOT
 # ==========================
-
+bot.remove_webhook()
+time.sleep(2)
 while True:
     try:
         print("🚀 Bot corriendo...")
