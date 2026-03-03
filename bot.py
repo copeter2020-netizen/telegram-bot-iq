@@ -5,26 +5,30 @@ import threading
 from iq_connector import ConectorIQ
 from strategy import analizar
 
-# =====================================
-# VARIABLES DE ENTORNO
-# =====================================
+# ==============================
+# VARIABLES
+# ==============================
 
 TOKEN = os.getenv("TOKEN")
 IQ_EMAIL = os.getenv("IQ_EMAIL")
 IQ_PASSWORD = os.getenv("IQ_PASSWORD")
 
 if not TOKEN:
-    raise ValueError("TOKEN no configurado en Railway")
+    raise Exception("TOKEN no configurado")
 
 bot = telebot.TeleBot(TOKEN)
 
-# Evita conflicto 409
-bot.remove_webhook()
+# Limpiar webhook
+try:
+    bot.remove_webhook()
+except:
+    pass
+
 time.sleep(2)
 
-# =====================================
-# CONEXIÓN IQ OPTION
-# =====================================
+# ==============================
+# CONEXIÓN IQ
+# ==============================
 
 conector = ConectorIQ(IQ_EMAIL, IQ_PASSWORD)
 
@@ -33,102 +37,74 @@ def conectar_iq():
         if conector.conectar():
             print("✅ Conectado a IQ Option")
         else:
-            print("❌ Error conectando a IQ")
+            print("❌ Error conectando IQ")
     except Exception as e:
-        print("Error conexión IQ:", e)
+        print("Error IQ:", e)
 
 conectar_iq()
 
-# =====================================
-# VARIABLES GLOBALES
-# =====================================
+# ==============================
+# CONTROL AUTO
+# ==============================
 
-CHAT_ID_ACTIVO = None
-
-# =====================================
-# COMANDOS TELEGRAM
-# =====================================
+CHAT_ID = None
+AUTO_ACTIVO = False
 
 @bot.message_handler(commands=['start'])
-def start(mensaje):
-    bot.reply_to(mensaje, "🤖 Bot activo.\nUsa /auto para activar señales automáticas")
+def start(m):
+    bot.reply_to(m, "🤖 Bot activo.\nUsa /auto para señales automáticas")
 
 @bot.message_handler(commands=['auto'])
-def activar_auto(mensaje):
-    global CHAT_ID_ACTIVO
-    CHAT_ID_ACTIVO = mensaje.chat.id
-    bot.reply_to(mensaje, "🚀 Señales automáticas activadas cada 5 minutos")
+def auto_on(m):
+    global CHAT_ID, AUTO_ACTIVO
+    CHAT_ID = m.chat.id
+    AUTO_ACTIVO = True
+    bot.reply_to(m, "🚀 Señales automáticas activadas")
 
 @bot.message_handler(commands=['stop'])
-def detener_auto(mensaje):
-    global CHAT_ID_ACTIVO
-    CHAT_ID_ACTIVO = None
-    bot.reply_to(mensaje, "⛔ Señales automáticas detenidas")
+def auto_off(m):
+    global AUTO_ACTIVO
+    AUTO_ACTIVO = False
+    bot.reply_to(m, "⛔ Señales detenidas")
 
-@bot.message_handler(func=lambda mensaje: True)
-def responder(mensaje):
-    bot.reply_to(
-        mensaje,
-        "Comandos disponibles:\n"
-        "/auto → activar señales automáticas\n"
-        "/stop → detener señales"
-    )
-
-# =====================================
+# ==============================
 # SEÑALES AUTOMÁTICAS
-# =====================================
+# ==============================
 
-def señales_automaticas():
-    global CHAT_ID_ACTIVO
+def loop_senales():
+    global AUTO_ACTIVO
 
     while True:
-        if CHAT_ID_ACTIVO:
+        if AUTO_ACTIVO and CHAT_ID:
 
-            pares = ["EURUSD-OTC", "GBPUSD-OTC"]
-
-            for par in pares:
+            for par in ["EURUSD-OTC", "GBPUSD-OTC"]:
                 try:
                     velas = conector.obtener_velas(par, 60, 120)
 
                     if velas:
                         señal = analizar(velas)
-
-                        mensaje = f"📊 {par}\n\n{señal}"
-
-                        bot.send_message(CHAT_ID_ACTIVO, mensaje)
+                        bot.send_message(CHAT_ID, f"📊 {par}\n\n{señal}")
 
                 except Exception as e:
-                    print("Error obteniendo señal:", e)
+                    print("Error señal:", e)
                     conectar_iq()
 
-        # Espera 5 minutos
         time.sleep(300)
 
-# Hilo en segundo plano
-threading.Thread(target=señales_automaticas, daemon=True).start()
+threading.Thread(target=loop_senales, daemon=True).start()
 
-# =====================================
-# INICIAR BOT CON PROTECCIÓN 409
-# =====================================
+# ==============================
+# POLLING SEGURO SIN 409
+# ==============================
 
-def iniciar_bot():
+def polling_seguro():
     while True:
         try:
             print("🚀 Bot corriendo...")
-
-            bot.remove_webhook()
-            time.sleep(2)
-
-            bot.infinity_polling(
-                timeout=60,
-                long_polling_timeout=60,
-                skip_pending=True
-            )
-
+            bot.polling(none_stop=True, interval=2, timeout=60)
         except Exception as e:
             print("⚠ Error polling:", e)
-            print("Reintentando en 15 segundos...")
-            time.sleep(15)
+            time.sleep(10)
 
 if __name__ == "__main__":
-    iniciar_bot()
+    polling_seguro() 
