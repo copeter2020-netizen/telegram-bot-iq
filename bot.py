@@ -1,11 +1,12 @@
 import telebot
 import os
 import time
+import threading
 from iq_connector import ConectorIQ
 from strategy import analizar
 
 # =====================================
-# VARIABLES DE ENTORNO
+# VARIABLES
 # =====================================
 
 TOKEN = os.getenv("TOKEN")
@@ -15,109 +16,99 @@ IQ_PASSWORD = os.getenv("IQ_PASSWORD")
 if not TOKEN:
     raise ValueError("TOKEN no configurado")
 
-if not IQ_EMAIL or not IQ_PASSWORD:
-    raise ValueError("Credenciales IQ no configuradas")
-
-# =====================================
-# CREAR BOT
-# =====================================
-
 bot = telebot.TeleBot(TOKEN)
-
-# 🔥 IMPORTANTE: evita error 409
 bot.remove_webhook()
-time.sleep(3)
-
-# =====================================
-# CONECTAR A IQ OPTION
-# =====================================
+time.sleep(2)
 
 conector = ConectorIQ(IQ_EMAIL, IQ_PASSWORD)
+
+# Guardará el chat donde enviar señales
+CHAT_ID_ACTIVO = None
+
+# =====================================
+# CONEXIÓN IQ
+# =====================================
 
 def conectar_iq():
     if conector.conectar():
         print("✅ Conectado a IQ Option")
     else:
-        print("❌ Error de conexión IQ Option")
+        print("❌ Error conectando IQ")
 
 conectar_iq()
 
 # =====================================
-# COMANDO /comenzar
+# COMANDO INICIAR AUTO
 # =====================================
 
-@bot.message_handler(commands=['comenzar'])
-def comenzar(mensaje):
-    bot.reply_to(
-        mensaje,
-        "🤖 Bot OTC Profesional Activo\n\n"
-        "Pares disponibles:\n"
-        "EURUSDOTC\n"
-        "GBPUSDOTC"
-    )
+@bot.message_handler(commands=['auto'])
+def activar_auto(mensaje):
+    global CHAT_ID_ACTIVO
+    CHAT_ID_ACTIVO = mensaje.chat.id
+    bot.reply_to(mensaje, "🚀 Señales automáticas activadas cada 5 minutos")
 
 # =====================================
-# MENSAJES
+# COMANDO DETENER
+# =====================================
+
+@bot.message_handler(commands=['stop'])
+def detener_auto(mensaje):
+    global CHAT_ID_ACTIVO
+    CHAT_ID_ACTIVO = None
+    bot.reply_to(mensaje, "⛔ Señales automáticas detenidas")
+
+# =====================================
+# ENVÍO AUTOMÁTICO CADA 5 MINUTOS
+# =====================================
+
+def señales_automaticas():
+    global CHAT_ID_ACTIVO
+
+    while True:
+        if CHAT_ID_ACTIVO:
+
+            pares = ["EURUSD-OTC", "GBPUSD-OTC"]
+
+            for par in pares:
+                try:
+                    velas = conector.obtener_velas(par, 60, 120)
+
+                    if velas:
+                        señal = analizar(velas)
+
+                        bot.send_message(
+                            CHAT_ID_ACTIVO,
+                            f"📊 {par}\n\n{señal}"
+                        )
+
+                except Exception as e:
+                    print("Error automático:", e)
+                    conectar_iq()
+
+        # Espera 5 minutos
+        time.sleep(300)
+
+# =====================================
+# RESPUESTA NORMAL
 # =====================================
 
 @bot.message_handler(func=lambda mensaje: True)
-def manejar_mensaje(mensaje):
-
-    texto = mensaje.text.upper().replace(" ", "")
-
-    pares = {
-        "EURUSDOTC": "EURUSD-OTC",
-        "GBPUSDOTC": "GBPUSD-OTC"
-    }
-
-    if texto in pares:
-
-        par = pares[texto]
-
-        bot.reply_to(
-            mensaje,
-            f"🔎 Analizando {par}...\nBuscando la mejor entrada..."
-        )
-
-        try:
-            velas = conector.obtener_velas(par, 60, 120)
-
-            if not velas:
-                bot.send_message(
-                    mensaje.chat.id,
-                    "⚠ No se pudieron obtener datos del mercado"
-                )
-                return
-
-            señal = analizar(velas)
-
-            bot.send_message(
-                mensaje.chat.id,
-                f"📊 Par: {par}\n\n{señal}"
-            )
-
-        except Exception as e:
-            print("Error analizando:", e)
-
-            # 🔁 Intentar reconectar automáticamente
-            print("Reintentando conexión a IQ...")
-            conectar_iq()
-
-            bot.send_message(
-                mensaje.chat.id,
-                "⚠ Error temporal. Intentando reconectar..."
-            )
-
-    else:
-        bot.reply_to(
-            mensaje,
-            "📌 Escribe uno de estos pares:\n"
-            "EURUSDOTC\n"
-            "GBPUSDOTC"
-        )
+def responder(mensaje):
+    bot.reply_to(
+        mensaje,
+        "Usa:\n"
+        "/auto → activar señales automáticas\n"
+        "/stop → detener señales"
+    )
 
 # =====================================
-# INICIAR BOT ESTABLE
+# INICIAR THREAD AUTOMÁTICO
+# =====================================
+
+threading.Thread(target=señales_automaticas, daemon=True).start()
+
+# =====================================
+# INICIAR BOT
 # =====================================
 
 def iniciar_bot():
@@ -130,7 +121,7 @@ def iniciar_bot():
                 skip_pending=True
             )
         except Exception as e:
-            print("Error en polling:", e)
+            print("Error polling:", e)
             time.sleep(10)
 
 if __name__ == "__main__":
