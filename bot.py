@@ -19,14 +19,14 @@ if not IQ_EMAIL or not IQ_PASSWORD:
     raise ValueError("Credenciales IQ no configuradas")
 
 # =====================================
-# CREAR BOT (ANTES DE HANDLERS)
+# CREAR BOT
 # =====================================
 
 bot = telebot.TeleBot(TOKEN)
 
-# Evita error 409
+# 🔥 IMPORTANTE: evita error 409
 bot.remove_webhook()
-time.sleep(2)
+time.sleep(3)
 
 # =====================================
 # CONECTAR A IQ OPTION
@@ -34,10 +34,13 @@ time.sleep(2)
 
 conector = ConectorIQ(IQ_EMAIL, IQ_PASSWORD)
 
-if conector.conectar():
-    print("✅ Conectado a IQ Option")
-else:
-    print("❌ Error de conexión IQ Option")
+def conectar_iq():
+    if conector.conectar():
+        print("✅ Conectado a IQ Option")
+    else:
+        print("❌ Error de conexión IQ Option")
+
+conectar_iq()
 
 # =====================================
 # COMANDO /comenzar
@@ -47,14 +50,14 @@ else:
 def comenzar(mensaje):
     bot.reply_to(
         mensaje,
-        "🤖 Bot OTC Activo\n\n"
-        "Escribe:\n"
+        "🤖 Bot OTC Profesional Activo\n\n"
+        "Pares disponibles:\n"
         "EURUSDOTC\n"
         "GBPUSDOTC"
     )
 
 # =====================================
-# MENSAJES NORMALES
+# MENSAJES
 # =====================================
 
 @bot.message_handler(func=lambda mensaje: True)
@@ -95,15 +98,20 @@ def manejar_mensaje(mensaje):
 
         except Exception as e:
             print("Error analizando:", e)
+
+            # 🔁 Intentar reconectar automáticamente
+            print("Reintentando conexión a IQ...")
+            conectar_iq()
+
             bot.send_message(
                 mensaje.chat.id,
-                "⚠ Error analizando el mercado"
+                "⚠ Error temporal. Intentando reconectar..."
             )
 
     else:
         bot.reply_to(
             mensaje,
-            "📌 Pares disponibles:\n"
+            "📌 Escribe uno de estos pares:\n"
             "EURUSDOTC\n"
             "GBPUSDOTC"
         )
@@ -116,10 +124,14 @@ def iniciar_bot():
     while True:
         try:
             print("🚀 Bot corriendo...")
-            bot.infinity_polling(timeout=60, long_polling_timeout=60)
+            bot.infinity_polling(
+                timeout=60,
+                long_polling_timeout=60,
+                skip_pending=True
+            )
         except Exception as e:
             print("Error en polling:", e)
-            time.sleep(5)
+            time.sleep(10)
 
 if __name__ == "__main__":
     iniciar_bot()
