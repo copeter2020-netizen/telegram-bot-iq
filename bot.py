@@ -59,11 +59,12 @@ AUTO = False
 CHAT_ID = None
 ULTIMA_SEÑAL = {}
 
-PARES_OTC = {
-    "EURUSDOTC": "EURUSD-OTC",
-    "GBPUSDOTC": "GBPUSD-OTC"
-}
-
+pares = [
+    "EURUSD-OTC",
+    "GBPUSD-OTC",
+    "CADCHF-OTC",
+    "AUDCAD-OTC"
+]
 # =====================================
 # COMANDO /comenzar
 # =====================================
