@@ -1,13 +1,12 @@
-import telebot
 import os
 import time
-import threading
+import telebot
 from iq_connector import ConectorIQ
 from strategy import analizar
 
-# ==============================
-# VARIABLES
-# ==============================
+# =============================
+# VARIABLES DE ENTORNO
+# =============================
 
 TOKEN = os.getenv("TOKEN")
 IQ_EMAIL = os.getenv("IQ_EMAIL")
@@ -16,95 +15,99 @@ IQ_PASSWORD = os.getenv("IQ_PASSWORD")
 if not TOKEN:
     raise Exception("TOKEN no configurado")
 
-bot = telebot.TeleBot(TOKEN)
+# =============================
+# CREAR BOT
+# =============================
 
-# Limpiar webhook
+bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
+
+# 🔥 ELIMINAR CUALQUIER WEBHOOK
 try:
-    bot.remove_webhook()
+    bot.delete_webhook()
+    print("Webhook eliminado")
 except:
     pass
 
-time.sleep(2)
+time.sleep(3)
 
-# ==============================
-# CONEXIÓN IQ
-# ==============================
+# =============================
+# CONECTAR IQ OPTION
+# =============================
 
 conector = ConectorIQ(IQ_EMAIL, IQ_PASSWORD)
 
-def conectar_iq():
-    try:
-        if conector.conectar():
-            print("✅ Conectado a IQ Option")
-        else:
-            print("❌ Error conectando IQ")
-    except Exception as e:
-        print("Error IQ:", e)
+if conector.conectar():
+    print("✅ Conectado a IQ Option")
+else:
+    print("❌ Error conectando a IQ")
 
-conectar_iq()
+# =============================
+# PARES A ANALIZAR
+# =============================
 
-# ==============================
-# CONTROL AUTO
-# ==============================
+PARES = ["EURUSD-OTC", "GBPUSD-OTC"]
 
 CHAT_ID = None
-AUTO_ACTIVO = False
+AUTO = False
 
-@bot.message_handler(commands=['start'])
-def start(m):
-    bot.reply_to(m, "🤖 Bot activo.\nUsa /auto para señales automáticas")
+# =============================
+# COMANDOS
+# =============================
 
-@bot.message_handler(commands=['auto'])
-def auto_on(m):
-    global CHAT_ID, AUTO_ACTIVO
-    CHAT_ID = m.chat.id
-    AUTO_ACTIVO = True
-    bot.reply_to(m, "🚀 Señales automáticas activadas")
+@bot.message_handler(commands=["start"])
+def start(msg):
+    bot.reply_to(msg, "🤖 Bot activo\nUsa /auto para señales automáticas")
 
-@bot.message_handler(commands=['stop'])
-def auto_off(m):
-    global AUTO_ACTIVO
-    AUTO_ACTIVO = False
-    bot.reply_to(m, "⛔ Señales detenidas")
+@bot.message_handler(commands=["auto"])
+def auto(msg):
+    global CHAT_ID, AUTO
+    CHAT_ID = msg.chat.id
+    AUTO = True
+    bot.reply_to(msg, "🚀 Señales automáticas activadas")
 
-# ==============================
-# SEÑALES AUTOMÁTICAS
-# ==============================
+@bot.message_handler(commands=["stop"])
+def stop(msg):
+    global AUTO
+    AUTO = False
+    bot.reply_to(msg, "⛔ Señales detenidas")
 
-def loop_senales():
-    global AUTO_ACTIVO
+# =============================
+# LOOP AUTOMÁTICO
+# =============================
+
+def loop():
+    global AUTO
 
     while True:
-        if AUTO_ACTIVO and CHAT_ID:
-
-            for par in ["EURUSD-OTC", "GBPUSD-OTC"]:
+        if AUTO and CHAT_ID:
+            for par in PARES:
                 try:
-                    velas = conector.obtener_velas(par, 60, 120)
+                    velas = conector.obtener_velas(par, 60, 100)
 
                     if velas:
-                        señal = analizar(velas)
-                        bot.send_message(CHAT_ID, f"📊 {par}\n\n{señal}")
+                        resultado = analizar(velas)
+                        bot.send_message(
+                            CHAT_ID,
+                            f"📊 <b>{par}</b>\n\n{resultado}"
+                        )
 
                 except Exception as e:
                     print("Error señal:", e)
-                    conectar_iq()
 
         time.sleep(300)
 
-threading.Thread(target=loop_senales, daemon=True).start()
+import threading
+threading.Thread(target=loop, daemon=True).start()
 
-# ==============================
-# POLLING SEGURO SIN 409
-# ==============================
+# =============================
+# POLLING ESTABLE
+# =============================
 
-def polling_seguro():
+if __name__ == "__main__":
     while True:
         try:
             print("🚀 Bot corriendo...")
-            bot.polling(none_stop=True, interval=2, timeout=60)
+            bot.infinity_polling(timeout=60, long_polling_timeout=60)
         except Exception as e:
-            print("⚠ Error polling:", e)
-            time.sleep(10)
-
-if __name__ == "__main__":
-    polling_seguro()  
+            print("Error polling:", e)
+            time.sleep(15) 
