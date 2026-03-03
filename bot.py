@@ -107,4 +107,4 @@ def polling_seguro():
             time.sleep(10)
 
 if __name__ == "__main__":
-    polling_seguro() 
+    polling_seguro()  
