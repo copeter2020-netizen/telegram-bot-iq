@@ -1,118 +1,230 @@
+import telebot
 import os
 import time
-import telebot
+import random
+import threading
 from iq_connector import ConectorIQ
 from strategy import analizar
 
-# =========================
-# VARIABLES
-# =========================
+# =====================================
+# VARIABLES DE ENTORNO
+# =====================================
 
 TOKEN = os.getenv("TOKEN")
 IQ_EMAIL = os.getenv("IQ_EMAIL")
 IQ_PASSWORD = os.getenv("IQ_PASSWORD")
 
 if not TOKEN:
-    raise Exception("TOKEN no configurado")
+    raise ValueError("TOKEN no configurado")
+
+if not IQ_EMAIL or not IQ_PASSWORD:
+    raise ValueError("Credenciales IQ no configuradas")
+
+# =====================================
+# INICIALIZAR BOT
+# =====================================
 
 bot = telebot.TeleBot(TOKEN)
 
-# 🔥 LIMPIAR WEBHOOK Y UPDATES ANTIGUOS
+# Eliminar webhook viejo (reduce riesgo 409)
 try:
-    bot.delete_webhook()
-    bot.get_updates(offset=-1)
-    print("Sesión Telegram limpia")
+    bot.remove_webhook()
 except:
     pass
 
 time.sleep(2)
 
-# =========================
-# CONEXIÓN IQ
-# =========================
+# =====================================
+# CONECTAR A IQ OPTION
+# =====================================
 
 conector = ConectorIQ(IQ_EMAIL, IQ_PASSWORD)
 
-if conector.conectar():
-    print("✅ Conectado a IQ Option")
-else:
-    print("❌ Error conectando a IQ")
+def conectar_iq():
+    try:
+        if conector.conectar():
+            print("✅ Conectado a IQ Option")
+        else:
+            print("❌ Error de conexión IQ Option")
+    except Exception as e:
+        print("Error conectando IQ:", e)
 
-# =========================
-# CONFIGURACIÓN
-# =========================
+conectar_iq()
 
-PARES = ["EURUSD-OTC", "GBPUSD-OTC"]
-CHAT_ID = None
+# =====================================
+# VARIABLES GLOBALES
+# =====================================
+
 AUTO = False
+CHAT_ID = None
+ULTIMA_SEÑAL = {}
 
-# =========================
-# COMANDOS
-# =========================
+PARES_OTC = {
+    "EURUSDOTC": "EURUSD-OTC",
+    "GBPUSDOTC": "GBPUSD-OTC"
+}
 
-@bot.message_handler(commands=['start'])
-def start(msg):
-    bot.reply_to(msg, "🤖 Bot activo\nUsa /auto para señales")
+# =====================================
+# COMANDO /comenzar
+# =====================================
+
+@bot.message_handler(commands=['comenzar'])
+def comenzar(mensaje):
+    bot.reply_to(
+        mensaje,
+        "🤖 Bot OTC Profesional Activo\n\n"
+        "Comandos:\n"
+        "/auto → Señales automáticas\n"
+        "/stop → Detener automáticas\n\n"
+        "Análisis manual:\n"
+        "EURUSDOTC\n"
+        "GBPUSDOTC"
+    )
+
+# =====================================
+# ACTIVAR AUTOMÁTICO
+# =====================================
 
 @bot.message_handler(commands=['auto'])
-def auto(msg):
-    global CHAT_ID, AUTO
-    CHAT_ID = msg.chat.id
+def activar_auto(mensaje):
+    global AUTO, CHAT_ID
     AUTO = True
-    bot.reply_to(msg, "🚀 Señales activadas")
+    CHAT_ID = mensaje.chat.id
+    bot.reply_to(mensaje, "🚀 Señales automáticas activadas")
 
 @bot.message_handler(commands=['stop'])
-def stop(msg):
+def detener_auto(mensaje):
     global AUTO
     AUTO = False
-    bot.reply_to(msg, "⛔ Señales detenidas")
+    bot.reply_to(mensaje, "⛔ Señales automáticas detenidas")
 
-# =========================
-# LOOP SIN THREAD
-# =========================
+# =====================================
+# MENSAJES MANUALES
+# =====================================
 
-def ejecutar_senales():
-    global AUTO
+@bot.message_handler(func=lambda mensaje: True)
+def manejar_mensaje(mensaje):
 
-    if AUTO and CHAT_ID:
-        for par in PARES:
-            try:
-                velas = conector.obtener_velas(par, 60, 100)
+    texto = mensaje.text.upper().replace(" ", "")
 
-                if velas:
-                    resultado = analizar(velas)
-                    bot.send_message(
-                        CHAT_ID,
-                        f"📊 {par}\n\n{resultado}"
-                    )
+    if texto in PARES_OTC:
 
-            except Exception as e:
-                print("Error señal:", e)
+        par = PARES_OTC[texto]
 
-# =========================
-# MAIN LOOP CONTROLADO
-# =========================
+        bot.reply_to(
+            mensaje,
+            f"🔎 Analizando {par}...\nBuscando la mejor entrada..."
+        )
 
-if __name__ == "__main__":
-
-    print("🚀 Bot corriendo estable...")
-
-    ultimo_envio = 0
-
-    while True:
         try:
-            bot.polling(
-                none_stop=True,
-                interval=2,
-                timeout=30,
-                skip_pending=True
+            velas = conector.obtener_velas(par, 60, 120)
+
+            if not velas:
+                bot.send_message(
+                    mensaje.chat.id,
+                    "⚠ No se pudieron obtener datos"
+                )
+                return
+
+            señal = analizar(velas)
+
+            bot.send_message(
+                mensaje.chat.id,
+                f"📊 Par: {par}\n\n{señal}"
             )
 
         except Exception as e:
-            print("Reintentando polling:", e)
+            print("Error analizando:", e)
+            bot.send_message(
+                mensaje.chat.id,
+                "⚠ Error analizando mercado"
+            )
+
+    else:
+        bot.reply_to(
+            mensaje,
+            "📌 Pares OTC disponibles:\n\n"
+            "EURUSDOTC\n"
+            "GBPUSDOTC"
+        )
+
+# =====================================
+# ESPERAR CIERRE EXACTO DE VELA M1
+# =====================================
+
+def esperar_cierre_vela():
+    while True:
+        segundos = int(time.time()) % 60
+        if segundos == 0:
+            break
+        time.sleep(0.5)
+
+# =====================================
+# LOOP AUTOMÁTICO AL CIERRE
+# =====================================
+
+def loop_automatico():
+    global AUTO, CHAT_ID, ULTIMA_SEÑAL
+
+    while True:
+
+        if AUTO and CHAT_ID:
+
+            print("⏳ Esperando cierre de vela...")
+            esperar_cierre_vela()
+
+            for clave, par in PARES_OTC.items():
+
+                try:
+                    velas = conector.obtener_velas(par, 60, 120)
+
+                    if not velas:
+                        continue
+
+                    resultado = analizar(velas)
+
+                    if "CALL" in resultado or "PUT" in resultado:
+
+                        if ULTIMA_SEÑAL.get(par) != resultado:
+
+                            bot.send_message(
+                                CHAT_ID,
+                                f"📊 {par}\n\n"
+                                f"{resultado}\n\n"
+                                f"🕐 Entrada al inicio de esta nueva vela"
+                            )
+
+                            ULTIMA_SEÑAL[par] = resultado
+
+                            # Esperar 3 a 5 velas antes de nueva señal
+                            velas_espera = random.randint(3, 5)
+                            print(f"Esperando {velas_espera} velas...")
+                            time.sleep(velas_espera * 60)
+
+                    else:
+                        print(f"{par} sin señal clara")
+
+                except Exception as e:
+                    print("Error automático:", e)
+                    conectar_iq()
+
+        time.sleep(1)
+
+# Ejecutar hilo automático
+threading.Thread(target=loop_automatico, daemon=True).start()
+
+# =====================================
+# INICIAR BOT CON PROTECCIÓN
+# =====================================
+
+def iniciar_bot():
+    while True:
+        try:
+            print("🚀 Bot corriendo...")
+            bot.infinity_polling(timeout=60, long_polling_timeout=60)
+        except Exception as e:
+            print("Error en polling:", e)
             time.sleep(5)
 
-        # Ejecutar señales cada 5 minutos
-        if time.time() - ultimo_envio > 300:
-            ejecutar_senales()
-            ultimo_envio = time.time() 
+if __name__ == "__main__":
+    iniciar_bot() 
