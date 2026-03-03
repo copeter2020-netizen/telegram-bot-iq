@@ -6,7 +6,7 @@ from iq_connector import ConectorIQ
 from strategy import analizar
 
 # =====================================
-# VARIABLES
+# VARIABLES DE ENTORNO
 # =====================================
 
 TOKEN = os.getenv("TOKEN")
@@ -14,32 +14,44 @@ IQ_EMAIL = os.getenv("IQ_EMAIL")
 IQ_PASSWORD = os.getenv("IQ_PASSWORD")
 
 if not TOKEN:
-    raise ValueError("TOKEN no configurado")
+    raise ValueError("TOKEN no configurado en Railway")
 
 bot = telebot.TeleBot(TOKEN)
+
+# Evita conflicto 409
 bot.remove_webhook()
 time.sleep(2)
 
+# =====================================
+# CONEXIÓN IQ OPTION
+# =====================================
+
 conector = ConectorIQ(IQ_EMAIL, IQ_PASSWORD)
 
-# Guardará el chat donde enviar señales
-CHAT_ID_ACTIVO = None
-
-# =====================================
-# CONEXIÓN IQ
-# =====================================
-
 def conectar_iq():
-    if conector.conectar():
-        print("✅ Conectado a IQ Option")
-    else:
-        print("❌ Error conectando IQ")
+    try:
+        if conector.conectar():
+            print("✅ Conectado a IQ Option")
+        else:
+            print("❌ Error conectando a IQ")
+    except Exception as e:
+        print("Error conexión IQ:", e)
 
 conectar_iq()
 
 # =====================================
-# COMANDO INICIAR AUTO
+# VARIABLES GLOBALES
 # =====================================
+
+CHAT_ID_ACTIVO = None
+
+# =====================================
+# COMANDOS TELEGRAM
+# =====================================
+
+@bot.message_handler(commands=['start'])
+def start(mensaje):
+    bot.reply_to(mensaje, "🤖 Bot activo.\nUsa /auto para activar señales automáticas")
 
 @bot.message_handler(commands=['auto'])
 def activar_auto(mensaje):
@@ -47,18 +59,23 @@ def activar_auto(mensaje):
     CHAT_ID_ACTIVO = mensaje.chat.id
     bot.reply_to(mensaje, "🚀 Señales automáticas activadas cada 5 minutos")
 
-# =====================================
-# COMANDO DETENER
-# =====================================
-
 @bot.message_handler(commands=['stop'])
 def detener_auto(mensaje):
     global CHAT_ID_ACTIVO
     CHAT_ID_ACTIVO = None
     bot.reply_to(mensaje, "⛔ Señales automáticas detenidas")
 
+@bot.message_handler(func=lambda mensaje: True)
+def responder(mensaje):
+    bot.reply_to(
+        mensaje,
+        "Comandos disponibles:\n"
+        "/auto → activar señales automáticas\n"
+        "/stop → detener señales"
+    )
+
 # =====================================
-# ENVÍO AUTOMÁTICO CADA 5 MINUTOS
+# SEÑALES AUTOMÁTICAS
 # =====================================
 
 def señales_automaticas():
@@ -76,53 +93,42 @@ def señales_automaticas():
                     if velas:
                         señal = analizar(velas)
 
-                        bot.send_message(
-                            CHAT_ID_ACTIVO,
-                            f"📊 {par}\n\n{señal}"
-                        )
+                        mensaje = f"📊 {par}\n\n{señal}"
+
+                        bot.send_message(CHAT_ID_ACTIVO, mensaje)
 
                 except Exception as e:
-                    print("Error automático:", e)
+                    print("Error obteniendo señal:", e)
                     conectar_iq()
 
         # Espera 5 minutos
         time.sleep(300)
 
-# =====================================
-# RESPUESTA NORMAL
-# =====================================
-
-@bot.message_handler(func=lambda mensaje: True)
-def responder(mensaje):
-    bot.reply_to(
-        mensaje,
-        "Usa:\n"
-        "/auto → activar señales automáticas\n"
-        "/stop → detener señales"
-    )
-
-# =====================================
-# INICIAR THREAD AUTOMÁTICO
-# =====================================
-
+# Hilo en segundo plano
 threading.Thread(target=señales_automaticas, daemon=True).start()
 
 # =====================================
-# INICIAR BOT
+# INICIAR BOT CON PROTECCIÓN 409
 # =====================================
 
 def iniciar_bot():
     while True:
         try:
             print("🚀 Bot corriendo...")
+
+            bot.remove_webhook()
+            time.sleep(2)
+
             bot.infinity_polling(
                 timeout=60,
                 long_polling_timeout=60,
                 skip_pending=True
             )
+
         except Exception as e:
-            print("Error polling:", e)
-            time.sleep(10)
+            print("⚠ Error polling:", e)
+            print("Reintentando en 15 segundos...")
+            time.sleep(15)
 
 if __name__ == "__main__":
     iniciar_bot()
