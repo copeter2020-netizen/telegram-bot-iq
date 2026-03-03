@@ -59,12 +59,12 @@ AUTO = False
 CHAT_ID = None
 ULTIMA_SEÑAL = {}
 
-pares = [
+pares = {
     "EURUSD-OTC",
     "GBPUSD-OTC",
     "CADCHF-OTC",
     "AUDCAD-OTC"
-]
+    } 
 # =====================================
 # COMANDO /comenzar
 # =====================================
@@ -80,6 +80,8 @@ def comenzar(mensaje):
         "Análisis manual:\n"
         "EURUSDOTC\n"
         "GBPUSDOTC"
+        "CADCHFOTC"
+        "AUDCADOTC" 
     )
 
 # =====================================
@@ -147,6 +149,8 @@ def manejar_mensaje(mensaje):
             "📌 Pares OTC disponibles:\n\n"
             "EURUSDOTC\n"
             "GBPUSDOTC"
+            "CADCHFOTC"
+            "AUDCADOTC" 
         )
 
 # =====================================
