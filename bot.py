@@ -26,7 +26,6 @@ if not IQ_EMAIL or not IQ_PASSWORD:
 
 bot = telebot.TeleBot(TOKEN)
 
-# Eliminar webhook viejo (reduce riesgo 409)
 try:
     bot.remove_webhook()
 except:
@@ -59,12 +58,14 @@ AUTO = False
 CHAT_ID = None
 ULTIMA_SEÑAL = {}
 
-pares = {
-    "EURUSD-OTC",
-    "GBPUSD-OTC",
-    "CADCHF-OTC",
-    "AUDCAD-OTC"
-    } 
+# Diccionario correcto de pares
+PARES_OTC = {
+    "EURUSDOTC": "EURUSD-OTC",
+    "GBPUSDOTC": "GBPUSD-OTC",
+    "CADCHFOTC": "CADCHF-OTC",
+    "AUDCADOTC": "AUDCAD-OTC"
+}
+
 # =====================================
 # COMANDO /comenzar
 # =====================================
@@ -79,9 +80,9 @@ def comenzar(mensaje):
         "/stop → Detener automáticas\n\n"
         "Análisis manual:\n"
         "EURUSDOTC\n"
-        "GBPUSDOTC"
-        "CADCHFOTC"
-        "AUDCADOTC" 
+        "GBPUSDOTC\n"
+        "CADCHFOTC\n"
+        "AUDCADOTC\n"
     )
 
 # =====================================
@@ -148,9 +149,9 @@ def manejar_mensaje(mensaje):
             mensaje,
             "📌 Pares OTC disponibles:\n\n"
             "EURUSDOTC\n"
-            "GBPUSDOTC"
-            "CADCHFOTC"
-            "AUDCADOTC" 
+            "GBPUSDOTC\n"
+            "CADCHFOTC\n"
+            "AUDCADOTC\n"
         )
 
 # =====================================
@@ -165,7 +166,7 @@ def esperar_cierre_vela():
         time.sleep(0.5)
 
 # =====================================
-# LOOP AUTOMÁTICO AL CIERRE
+# LOOP AUTOMÁTICO
 # =====================================
 
 def loop_automatico():
@@ -201,7 +202,6 @@ def loop_automatico():
 
                             ULTIMA_SEÑAL[par] = resultado
 
-                            # Esperar 3 a 5 velas antes de nueva señal
                             velas_espera = random.randint(3, 5)
                             print(f"Esperando {velas_espera} velas...")
                             time.sleep(velas_espera * 60)
@@ -215,11 +215,10 @@ def loop_automatico():
 
         time.sleep(1)
 
-# Ejecutar hilo automático
 threading.Thread(target=loop_automatico, daemon=True).start()
 
 # =====================================
-# INICIAR BOT CON PROTECCIÓN
+# INICIAR BOT
 # =====================================
 
 def iniciar_bot():
@@ -232,4 +231,4 @@ def iniciar_bot():
             time.sleep(5)
 
 if __name__ == "__main__":
-    iniciar_bot() 
+    iniciar_bot()
