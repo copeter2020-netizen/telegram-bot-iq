@@ -148,13 +148,6 @@ def manejar_mensaje(mensaje):
 
             bot.reply_to(mensaje, f"⚠️ Error analizando {par}")
 
-    else:
-
-        bot.reply_to(
-            mensaje,
-            "⚠️ Par no reconocido\n\nEjemplo:\nEURUSDOTC\nGBPUSDOTC\nAUDCADOTC"
-        )
-
 # =====================================
 # SEÑALES AUTOMÁTICAS
 # =====================================
@@ -181,7 +174,7 @@ def auto_signals():
                             "📊 SEÑAL DETECTADA\n\n"
                             f"Par: {par}\n"
                             f"{señal}\n\n"
-                            "Expiración: 3-5 minutos"
+                            "⏱ Expiración: 3-5 minutos"
                         )
 
                         bot.send_message(CHAT_ID, mensaje)
