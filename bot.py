@@ -39,11 +39,13 @@ time.sleep(2)
 conector = ConectorIQ(IQ_EMAIL, IQ_PASSWORD)
 
 def conectar_iq():
+
     try:
         if conector.conectar():
             print("✅ Conectado a IQ Option")
         else:
             print("❌ Error de conexión IQ Option")
+
     except Exception as e:
         print("Error conectando IQ:", e)
 
@@ -64,13 +66,13 @@ ULTIMA_SEÑAL = {}
 PARES_OTC = {
     "EURUSDOTC": "EURUSD-OTC",
     "GBPUSDOTC": "GBPUSD-OTC",
-    "CADCHFOTC": "CADCHF-OTC",
     "AUDCADOTC": "AUDCAD-OTC",
     "AUDUSDOTC": "AUDUSD-OTC",
-    "EURGBPOTC": "EURGBP-OTC",
     "USDJPYOTC": "USDJPY-OTC",
+    "EURGBPOTC": "EURGBP-OTC",
     "USDCADOTC": "USDCAD-OTC",
-    "EURJPYOTC": "EURJPY-OTC"
+    "EURJPYOTC": "EURJPY-OTC",
+    "CADCHFOTC": "CADCHF-OTC"
 }
 
 # =====================================
@@ -81,16 +83,16 @@ PARES_OTC = {
 def comenzar(mensaje):
 
     texto = (
-        "🤖 Bot OTC Profesional Activo\n\n"
+        "🤖 BOT OTC ACTIVO\n\n"
         "Comandos:\n"
-        "/auto → Señales automáticas\n"
-        "/stop → Detener automáticas\n\n"
+        "/auto → Activar señales automáticas\n"
+        "/stop → Detener señales\n\n"
         "Análisis manual:\n"
         "EURUSDOTC\n"
         "GBPUSDOTC\n"
         "AUDCADOTC\n"
         "AUDUSDOTC\n"
-        "USDJPYOTC\n"
+        "USDJPYOTC"
     )
 
     bot.reply_to(mensaje, texto)
@@ -107,7 +109,7 @@ def activar_auto(mensaje):
     AUTO = True
     CHAT_ID = mensaje.chat.id
 
-    bot.reply_to(mensaje, "🚀 Señales automáticas activadas")
+    bot.reply_to(mensaje, "🚀 Señales automáticas ACTIVADAS")
 
 # =====================================
 # DETENER AUTOMÁTICO
@@ -120,7 +122,7 @@ def detener_auto(mensaje):
 
     AUTO = False
 
-    bot.reply_to(mensaje, "⛔ Señales automáticas detenidas")
+    bot.reply_to(mensaje, "⛔ Señales automáticas DETENIDAS")
 
 # =====================================
 # MENSAJES MANUALES
@@ -141,7 +143,9 @@ def manejar_mensaje(mensaje):
 
             bot.reply_to(
                 mensaje,
-                f"📊 Análisis\n\nPar: {par}\n{resultado}"
+                f"📊 ANÁLISIS\n\n"
+                f"Par: {par}\n"
+                f"{resultado}"
             )
 
         except Exception as e:
@@ -160,9 +164,9 @@ def auto_signals():
 
         if AUTO and CHAT_ID:
 
-            print("⏳ Esperando cierre de vela...")
+            print("🔎 Analizando mercado...")
 
-            for par in PARES_OTC.values():
+            for nombre, par in PARES_OTC.items():
 
                 try:
 
@@ -171,7 +175,7 @@ def auto_signals():
                     if señal and señal != ULTIMA_SEÑAL.get(par):
 
                         mensaje = (
-                            "📊 SEÑAL DETECTADA\n\n"
+                            "🚨 SEÑAL DETECTADA\n\n"
                             f"Par: {par}\n"
                             f"{señal}\n\n"
                             "⏱ Expiración: 3-5 minutos"
@@ -181,15 +185,15 @@ def auto_signals():
 
                         ULTIMA_SEÑAL[par] = señal
 
-                        print(par, "señal enviada")
+                        print("✅ Señal enviada:", par)
 
                     else:
 
-                        print(par, "sin señal clara")
+                        print("⏳ Sin señal:", par)
 
                 except Exception as e:
 
-                    print("Error analizando", par, e)
+                    print("⚠️ Error analizando", par, e)
 
         time.sleep(60)
 
@@ -201,4 +205,4 @@ threading.Thread(target=auto_signals).start()
 
 print("🚀 Bot corriendo...")
 
-bot.infinity_polling()
+bot.infinity_polling() 
