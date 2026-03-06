@@ -73,3 +73,5 @@ def analizar(velas):
         )
 
     return "🟡 Esperando mejor confirmación del mercado"
+    
+# update
