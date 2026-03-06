@@ -66,13 +66,7 @@ ULTIMA_SEÑAL = {}
 PARES_OTC = {
     "EURUSDOTC": "EURUSD-OTC",
     "GBPUSDOTC": "GBPUSD-OTC",
-    "AUDCADOTC": "AUDCAD-OTC",
-    "AUDUSDOTC": "AUDUSD-OTC",
-    "USDJPYOTC": "USDJPY-OTC",
-    "EURGBPOTC": "EURGBP-OTC",
-    "USDCADOTC": "USDCAD-OTC",
-    "EURJPYOTC": "EURJPY-OTC",
-    "CADCHFOTC": "CADCHF-OTC"
+    "AUDCADOTC": "AUDCAD-OTC"
 }
 
 # =====================================
@@ -91,8 +85,6 @@ def comenzar(mensaje):
         "EURUSDOTC\n"
         "GBPUSDOTC\n"
         "AUDCADOTC\n"
-        "AUDUSDOTC\n"
-        "USDJPYOTC"
     )
 
     bot.reply_to(mensaje, texto)
@@ -178,7 +170,7 @@ def auto_signals():
                             "🚨 SEÑAL DETECTADA\n\n"
                             f"Par: {par}\n"
                             f"{señal}\n\n"
-                            "⏱ Expiración: 3-5 minutos"
+                            "⏱ Expiración: 3 minutos"
                         )
 
                         bot.send_message(CHAT_ID, mensaje)
